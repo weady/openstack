@@ -14,9 +14,20 @@ iso_path="/work/soft/kvm/centos-7.2.iso"
 image_path="/work/soft/kvm/centos-7.2.raw"
 UUID=`uuidgen`
 function configer_xml(){
-	[[ ! -f "$new_xml" ]] && cp $xml_template $new_xml || echo "$new_xml exsit"
-	[[ ! -f "$new_disk" ]] && qemu-img create -f raw $new_disk $disk_size || echo "$new_disk exsit"
-	if [ $? -eq 0 ];then
+	if [ ! -f "$new_xml" ];then
+		cp $xml_template $new_xml
+	else
+		echo "$new_xml exsit"
+		exit
+	fi
+	if [ ! -f "$new_disk" ];then
+		qemu-img create -f raw $new_disk $disk_size
+	else
+		echo  "$new_disk exsit"
+		exit
+	fi
+	tag=`cat $new_xml | grep '%UUID%'`
+	if [ ! -z "$tag" ];then
 		sed -i "s,%HOSTNAME%,$computer_name,g" $new_xml
 		sed -i "s,%UUID%,$UUID,g" $new_xml
 		sed -i "s,%IMAGE_PATH%,$image_path,g" $new_xml
@@ -25,8 +36,9 @@ function configer_xml(){
 		sed -i "s,%MAC%,$MAC,g" $new_xml
 		MAC2="52:54:$(dd if=/dev/urandom count=1 2>/dev/null | md5sum|sed 's/^\(..\)\(..\)\(..\)\(..\).*$/\1:\2:\3:4/')"
 		sed -i "s,%MAC2%,$MAC2,g" $new_xml
-		virsh define $new_xml >/dev/null 2>&
-		virsh start $computer_name >/dev/null 2>&
+		virsh define $new_xml >/dev/null
+		virsh start $computer_name >/dev/null
 		virsh vncdisplay $computer_name
 	fi
 }
+configer_xml
