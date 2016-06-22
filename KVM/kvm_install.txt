@@ -1,0 +1,8 @@
+安装KVM相关软件
+1.检测CPU虚拟化:egrep "(vmx|svm)" /proc/cpuinfo
+2.安装kvm,libvirt软件: yum install kvm virt-manager libvirt bridge-utils device-mapper-libs
+    service libvirtd start     //启动libvirtd,用于管理KVM
+3.检测KVM模块是否安装成功: lsmod | grep kvm
+    modprobe kvm /modprobe kvm_intel/modprobe kvm_amd
+4.检测KVM是否安装成功 virsh -c qemu:///system list
+5.启用图像管理工具:virt-manager
