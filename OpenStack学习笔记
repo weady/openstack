@@ -1,0 +1,280 @@
+Openstack 官网:http://releases.openstack.org/
+openstack的主要功能组件:
+1.Horizon  UI服务
+2.keystone 身份服务
+user 即用户，代表可以通过keystone进行访问的人或程序，用户通过认证信息(密码，api key等)进行验证
+tenant 租户，是各个服务中的一些可以访问的资源的集合
+role 角色，roles代表一组用户可以访问的资源权限
+service 服务，如nova,glance,swift 服务需要在keystone上进行注册
+endpoint 可以理解为一个服务的访问入口
+token 访问资源的令牌，相当于现实中的钥匙，具有时效性
+keystone提供的服务类型:
+    1.identity 提供对用户身份的验证
+    2.token 通过identity的验证后，会为用户分配令牌用于访问响应的资源，token服务验证用户提供的这个
+        令牌是否有效
+    3.catalog 服务提供了服务注册表的功能
+    4.policy 服务暴露了一个基于规则的身份验证引擎
+3.Nova 计算服务
+    该服务的主要功能:实例(虚拟机等)生命周期的管理；计算资源管理；向外提供REST风格的API
+    nova-api 表示层，和用户的操作进行交互
+    nova-scheduler 逻辑控制层，抉择哪个实体机进行实例操作
+    nova-computer 服务实例的创建和资源的分配
+    三个组件同消息中间件 rabbit MQ 完成了Nova的功能
+    nova-api(接收用户的信息)-------->rabbit MQ<-------->nova-scheduler(Nova的调度中心)
+                                                                    |
+                                                                    |-------------->nova-computer(Nova的具体执行者)
+4.Glance 镜像服务
+    该组件主要提供虚拟机镜像的存储,查询和检索服务
+    为nova组件提供服务
+    依赖存储服务(存放具体的镜像内容)和数据库(存储镜像的元数据)
+5.Cinder/Swift 存储服务
+    swift提供高可用的对象存储服务
+    定位 account-->container-->object
+    可以通过http(s),objectAPI，S3接口存取
+    
+6.Neutron(前身quantum) 网络服务
+    提供云计算环境下的虚拟网络功能；为每个租户提供独立的网络环境
+    三种模式:flat 模式 flat DHCP 模块 VLAN 模块 (flat模式即网桥模式)
+7.Heat 编排组织服务
+8.Ceilmeter 监控计量服务
+
+云计算从功能上主要分为两类: 云计算，主要是提供虚拟主机服务；云存储，主要是提供海量数据存储服务
+云存储系统分为四层:
+1.硬件层
+2.管理层 管理层主要是通过分布式文件系统、网络通信来实现，进而保证硬件设备协调工作
+3.API层
+4.客户端
+云计算三层架构模型:
+1.IaaS (基础设施即服务) 物理机的管理，虚拟机的管理和存储的管理  资源的管理和有效利用
+2.PaaS (平台即服务) 在虚拟机中搭建开发环境 快速部署中间件服务
+3.SaaS (软件即服务) 加速应用的开发 
+openstack 采用了A~Z 开头的不同的单词 表示各种不同的版本
+openstack是一个IaaS 层的软件
+CloudFoundry 是PaaS 层的著名软件
+底层的虚拟机可以使用KVM XEN VirtualBox Qeme LXC 和vmware,KVM支持最完善
+openstack 2010年发布了austin 版本
+从folsom 版本开始，openstack 分为三大组件: Nova-->云计算 swift-->云存储 Quantum-->网络虚拟化
+OpenStack 组件:
+1.虚拟化管理系统 Nova
+2.磁盘存储系统 Glance 和swift
+3.虚拟网络管理Quantum   SDN 软件定义网络
+虚拟化技术:
+ KVM(内核的虚拟机)
+KVM需要2个条件:硬件支持虚拟化；操作系统linux
+KVM包含一个加载的内核模块kvm.ko
+虚拟机要与真实硬件设备交互，需要理由linux系统内核来进行管理
+虚拟机要与虚拟机的外设交互，KVM需要借助一个虚拟化项目qemu
+KVM 本身只关注虚拟机调度、内存管理，外设的任务交给Linux内核、qemu
+KVM的安装，需要先查看CPU是否支持虚拟化 cat /proc/cpuinfo | grep -o '(vmx|svm)'
+vmx 是intel系统，采用intel-VT技术；svm 是AMD系列，采用AMD-VT技术
+仅有 KVM 模块是远远不够的，因为用户无法直接控制内核模块去做事情，还必须有一个用户空间的工具,KVM 的开发者选择了已经成型的开源虚拟化软件 QEMU。QEMU 是一个强大的虚拟化软件，它可以虚拟不同的 CPU 构架
+使用 libvirt，你只需要通过 libvirt 提供的函数连接到 KVM 或 Xen 宿主机，便可以用同样的命令控制不同的虚拟机了。Libvirt 不仅提供了 API，还自带一套基于文本的管理虚拟机的命令 virsh，你可以通过使用 virsh 命令来使用 libvirt 的全部功能。但最终用户更渴望的是图形用户界面，这就是 virt-manage
+安装KVM相关软件
+1.检测CPU虚拟化:egrep "(vmx|svm)" /proc/cpuinfo
+2.安装kvm,libvirt软件: yum install kvm virt-manager libvirt bridge-utils device-mapper-libs
+    service libvirtd start     //启动libvirtd,用于管理KVM
+3.检测KVM模块是否安装成功: lsmod | grep kvm
+    modprobe kvm /modprobe kvm_intel/modprobe kvm_amd
+4.检测KVM是否安装成功 virsh -c qemu:///system list
+5.启用图像管理工具:virt-manager
+KVM网络配置:
+一种是default，它支持主机与虚拟机的互访，同时也支持虚拟机访问互联网，但不支持外界访问虚拟机。
+另外一种方式是bridge方式，可以使用虚拟机成为网络中具有独立IP的主机
+ XEN
+XEN支持半虚拟化,半虚拟化是指不依赖硬件而从软件上实现的虚拟化。依赖宿主机
+Libvirt 主要是一个虚拟机工具，是一个软件的集合，包括API库，后台运行程序(Libvirtd)和命令行工具(virsh),它为使用者提供了
+虚拟机管理和其他虚拟化设备管理
+libvirt 的xml文件分为几个重要的部分:
+虚拟机整体信息
+uuidgen 获取UUID值，同一台物理机上虚拟机的名字和UUID值必须是唯一的
+系统信息
+硬件资源特性
+突发事件处理
+虚拟磁盘
+虚拟光驱
+虚拟网络
+VNC/spice配置
+在虚拟化技术或者云计算中，使用image一词来表示虚拟磁盘，所有的虚拟外设都包括在<devices></devices>中
+raw格式的image
+qemu-img create -f raw linux-7.2.raw 100G
+dev添加image作为第几个磁盘，第一个磁盘记为vda，第二个vdb...，bus代表了所使用的磁盘驱动类型，在这里使用的是virtio
+qcow2格式的Image 
+qemu-img create -f qcow2 -o cluster_size=2M,backing_file=win7.raw windows7.qcow2 60G
+虚拟机是直接与qcow2格式的image交互。raw格式image作为backing file,qcow2 格式image只是保存了所有的更改数据，raw格式的image中的数据不会发生变动
+对backing_file的读操作可以进行，而写操作必须禁止。因此一个backing_file可以被多个虚拟机采用qcow2的方式进行共享
+虚拟机对虚拟磁盘的操作：
+1.读操作：如果虚拟机没有更改数据，直接读取raw格式磁盘。如果改变读取qcow2格式磁盘
+2.写操作:写数据如果与raw虚拟磁盘上的数据不相同，则将此部分数据保存到qcow2格式磁盘
+qcow2格式的image的好处，磁盘空间是动态增长的，raw是立刻占用的
+批量创建虚拟机时，利用qcow2文件创建虚拟机时，用raw文件作为backing file，然后常见qcow2格式的image即可
+关于qcow2格式的image的backing_file：
+1.可以没有backing_file，qemu-img create -f qcow2 linux-6.3.qcow2 200G
+2.如果采用backing_file建议使用raw格式
+raw 和qcow2格式的磁盘特点:
+1.raw 不支持加密、压缩、快照，删除文件会释放空间
+2.qcow2不能直接转换其格式，需要借助raw进行转换，支持加密、压缩、快照，删除文件不释放空间
+qemu-img info xxxx.[raw|qcow2]  查看磁盘的格式
+虚拟网络:
+1.桥接网络
+桥接网络主要是通过网桥，从而虚拟出多个"真实网卡"以提供给虚拟机使用，受到真实网卡所在网络的限制
+2.DHCP网桥
+3.静态IP网桥
+4.基于网桥的虚拟网卡
+一般利用网桥方式建立的网卡的mac地址多以fa:92开头
+5.基于虚拟局域网的虚拟网卡
+基于内部局域网的MAC地址多以52:54开头
+制作image的方式有:virt-manager，virsh
+虚拟机上网:
+第一种网桥:
+物理机上编辑一个网卡的配置文件:
+BOOTPROTO=static
+DEVICE=br0
+TYPE=Bridge
+NM_CONTROLLED=no
+IPADDR=192.168.7.183
+NETMASK=255.255.255.0
+GATEWAY=192.168.7.254
+虚拟上的配置:
+<interface type='bridge'>
+  <mac address='52:54:00:84:e9:e1'/>
+  <source bridge='br0'/>
+  <model type='rtl8139'/>
+  <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+</interface>
+第二种NAT:
+virsh net-list //默认的NAT网络
+virsh net-dumpxml default //查看默认NAT的网络配置
+可以看到该网络搭建在一个网桥virbr0上，这个网桥在安装并启动libvirt的时候自动生成
+虚拟机的配置文件的配置:
+<interface type='network'>
+   <mac address='52:54:00:c7:18:b5'/>
+   <source network='default'/>
+   <model type='virtio'/>
+   <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+</interface>
+默认的NAT配置文件在 /var/lib/libvirt/network/default.xml，可以对其进行自定义
+virsh net-define default.xml
+virsh net-start default
+brctl show 查看网桥绑定情况
+虚拟机的创建可以是用virt-manager 或者virsh命令行格式
+关闭虚拟机virsh destroy linux6.3
+查看虚拟机 virsh list
+保存配置文件 virsh dumpxml linux6.3 >linux6.3.xml
+undefine虚拟机 virsh undefine linux6.3 ,取消的含义是此虚拟机不受virsh命令的管理
+undefine和delete的区别是，undefine只是从数据库中删了对应的虚拟机记录信息，而该虚拟机占用的资源并没有删除
+virsh命令创建image
+1.下载模板
+2.修改UUID
+3.创建image
+qemu-img create -f raw linux6.3.raw 30G
+4.ios 安装虚拟光盘，用来安装操作系统
+5.虚拟网卡 ，基于网桥的虚拟网卡，配置虚拟网卡之前确保br100启用
+MAC="fa:95:$(dd if=/dev/urandom count=1 2>/dev/null | md5sum|sed 's/^\(..\)\(..\)\(..\)\(..\).*$/\1:\2:\3:4/')"
+sed -i "s,%MAC%,$MAC,g" template.xml
+MAC2="52:54:$(dd if=/dev/urandom count=1 2>/dev/null | md5sum|sed 's/^\(..\)\(..\)\(..\)\(..\).*$/\1:\2:\3:4/')"
+sed -i "s,%MAC2%,$MAC2,g" template.xml
+6.启动虚拟机
+virsh define linux.xml
+virsh start linux
+7.vnc查看虚拟机对应的VNC编号，用于连接
+virsh vncdisplay linux
+keystone安全认证服务
+安装keystone需要安装Mysql
+安装RabbitMQ   消息通信服务
+Mysql为openstack提供了数据库服务,而rabbitMQ则提供了基于消息的通信服务和远程函数调用功能
+keystone主要为整个openstack 提供安全认证服务，用户登录、服务注册以及消息通信都会用到这个关键组件
+python setup.py build/develop/install
+build 命令用于检查依赖是否安装完整，develop则直接使用当前目录，install会将python代码安装到系统目录
+endpoint 在Openstack中表示服务访问节点即服务入口
+keystone 好比一个公司的安全部门
+tenant 好比安全部门的多个办公室
+user 在安全部门上班的员工
+role 安全部门内部的各种权限，好比安全部门的权利和钥匙
+service 被安全部门认可的职能
+
+1.创建tenant
+    ADMIN_TENANT 相对于BOSS办公室 get_id keystone tenant-create --name=admin 
+    SERVERICE_TENANT    get_id keystone tenant-create --name=自定义的名字 
+    DEMO_TENANT 负责Openstack项目的功能演示 get_id keystone tenant-create --name=demo 
+    INVIS_TENANT 主要为openstack 中的Horizon和swift提供服务 get_id keystone tenant-create --name=invisible_to_admin
+2.创建user
+    tenant类似办公的房间有了但是没有员工，创建user就类似添加员工
+    get_id keystone user-create --name=admin --pass="xxxx" --email="xxx@xxx.xxx"
+3.role 角色的创建，用户权限的分配
+    get_id keystone role-create --name=admin
+4.把具体的用户分配到相应的tenant中，并赋予对应的权限
+    keystone user-role-add --user_id XXXX --role_id xxxx --tenant_id xxxx
+Keystone类似一个服务总线，或者说是整个Openstack框架的注册表，其他服务通过Keystone来注册其服务，任何服务之间相互的调用，都需要经过Keystone的身份验证来获得目标服务。Keystone包含两个主要部件：验证与服务目录。
+验证服务提供了一套基于令牌的验证服务
+1.租户(Tenant)
+    使用相关服务的一个组织（一个租户可以代表一个客户、账号、公司、组织或项目），必须指定一个相应的租户（Tenant）才可以申请OpenStack服务
+2.用户(user)
+    用户拥有证书，可以与一个或多个租户关联。经过身份验证后，会为每个关联的租户提供一个特定的令牌。一个用户可以在不同的租户中被分配不同的角色。以Swift为例，我们可以这样理解：租户是一个公司，拥有一大块存储空间，用户是个人，是该公司的员工，能够根据用户的角色访问公司的部分或全部存储空间，当然这个员工可以同时在其他公司兼职，拥有其他公司的存储空间
+3.证书
+    为了给用户提供一个令牌，需要用证书来唯一标识一个用户的密码或其它信息
+4.令牌
+    用于与其它OpenStack服务来共享信息，Keystone以此来提供一个Central Location，以验证访问OpenStack服务的用户
+5.角色
+    代表特定的租户中的用户操作权限，一个角色是应用于某个租户的使用权限集合，以允许某个指定用户访问或使用特定操作。角色是使用权限的逻辑分组，它使得通用的权限可以简单地分组并绑定到与某个指定租户相关的用户
+
+服务目录部件（Service Catalog）提供了一套REST API服务端点列表并以此作为决策参考。
+1.服务
+    一个OpenStack服务，例如Nova、Swift、Glance或Keystone。一个服务可以拥有一个或多个端点，用户可以通过它与OpenStack的服务或资源进行交互
+2.端点
+   一个可以通过网络访问的地址（例如一个URL），代表了OpenStack服务的API入口。端点也可以分组为模板，每个模板代表一组可用的OpenStack服务，这些服务是跨区域（regions）可用的
+    不同 region 有不同的service endpoint。endpoint告诉也可告诉 OpenStack service 去哪里访问特定的 servcie。比如，当 Nova 需要访问 Glance 服务去获取 image 时，Nova 通过访问 Keystone 拿到 Glance 的 endpoint，然后通过访问该 endpoint 去获取Glance服务
+    使用对象分为三类:
+    adminurl 给admin 用户使用
+    internalurl OpenStack 内部服务使用来跟别的服务通信
+    publicurl 其它用户可以访问的地址
+3.模板
+    一个端点集合，代表一组可用的OpenStack服务端点
+
+/usr/bin/keystone-all 会启动 admin 和 public 两个 service (/etc/keystone/keystone-paste.ini ) 分别绑定不同 host 和 端口。默认的话，绑定host 都是 0.0.0.0； admin 的绑定端口是 35357 （admin_port）， public 的绑定端口是 5000 （public_port）。因此，给 admin 使用的 OS_AUTH_URL 为 http://controller:35357/v2.0， 给 public 使用的 OS_AUTH_URL=http://controller:5000/v2.0
+Keystone V3 API 新特性
+Keystone V3 做出了许多变化和改进，我们选取其中较为重要的进行阐述：
+将 Tenant 改称为 Project
+引入 Domain 的概念
+引入 Group 的概念
+Domain 担任 Project 的高层容器。云服务的客户是 Domain 的所有者，他们可以在自己的 Domain 中创建多个 Projects、Users、Groups 和 Roles。
+Group 是一组 Users 的容器，可以向 Group 中添加用户，并直接给 Group 分配角色，那么在这个 Group 中的所有用户就都拥有了 Group 所拥有的角色权限
+Keystone提供的安全服务主要是面向两个:
+1.用户认证
+ 主要是对用户的登录信息、用户请求的资源以及用户的权限进行检验
+2.内部各组件通信
+主要是为服务注册和安装认证的变量
+Keystone由一组内部服务组成，这些服务包含：
+Identity：该服务主要提供对身份信息的验证包含用户、租户和角色，以及相关联的元数据。
+Token：该服务验证并且管理所有的令牌信息。
+Catalog：该服务提供对所有服务接入点的注册管理。
+Policy：该服务提供了一个基于角色的授权管理系统及规则管理接口
+Service Catalog（服务目录）是Keystone为OpenStack提供的一个REST API端点列表，并以此作为决策参考。
+keystone catalog # 可以显示所有已有的service
+keystone catalog --service <service-type> # 显示某个service信息
+swift存储服务
+swift的特点:
+1.数据持久性是衡量存储系统的重要指标，为了防止数据丢失，swift采用了冗余(replicat 副本)的处理办法
+2.swift架构对称性，每个节点的功能和作用均等
+3.无单点故障
+    每个节点的地位完全平等，没有一个角色是单点的。对元数据处理和对象文件存储处理方式是一样的，完全多份均匀随机分配
+4.可扩展性
+    理论上新节点加入到swift集群中时，会给扩展性带来两方面的影响，容量的增加；系统性能的提升。为了保持节点地位的平等，新
+    节点会同步数据保存和旧节点的地位平等，如果数据量大时就面临大量数据的迁移
+swift的架构
+1.authentication node 认证节点
+    认证节点提供身份验证功能，如果只想使用swift作为存储系统，可以使用内置的认证服务，而在openstack中使用keystone作为认证服务器
+2.proxy node 代理节点
+    代理节点提供swift API的服务进程，负责把客户端的请求进行转发
+3.storage node 存储结点
+    存储结点将磁盘存储服务转化成为swift中的存储服务。存储目标的类型不同，storage node上运行的存储服务业分为3类
+    a. object server 对象服务提供了二进制大对象存储服务，需要底层文件系统提供扩展属性
+    b.container server  容器服务主要是处理对象列表
+    c.account server 账户服务处理的对象主要是容器列表
+swift存储系统有三个服务来进行故障处理:
+1.auditor 审计器会在本地服务反复地检测容器、账户和对象的一致性，如果发现不一致，先隔离然后通过replicator进行数据同步
+2.updater
+    更新器的主要作用是延迟更新，正常的更新顺序 用户数据上传成功--object server 向container server发送通知，通知
+container server 某个container中新加入了一个object。当container server 接收到该通知，更新好object列表后再向 account server
+发送通知，account server 接收到此通知并更新container 列表。当更新失败后，更新操作会加入到更新队列中，由Updater来处理
+3.replicator
+      复制器负责将完好的副本替换损坏的数据，通常会每隔一段时间扫描一个本地文件的hash值，并且与远端的其他副本的hash值进行对比如果不同就进行复制替换
